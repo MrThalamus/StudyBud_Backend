@@ -1,6 +1,18 @@
 {% extends 'main.html' %}
 
 {% block content %}
+<div class="comment-wrapper">
+  <h3>Conversations</h3>
+  <hr>
+
+  {% for message in messages %}
+    <div>
+      <small>@{{ message.user }}  {{message.created_at}}</small></p>
+    </div>
+  {% endfor %}
+</div>
+
+
 {% if page == 'login' %}
 <div>
   <form method="POST" action="">
