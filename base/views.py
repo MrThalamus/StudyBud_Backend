@@ -2,12 +2,11 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.contrib.auth.models import User 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.http import HttpResponse 
-from .models import Room, Topic, Message
-from .forms import RoomForm, UserForm
+from .models import Room, Topic, Message, User
+from .forms import RoomForm, UserForm, MyUserCreationForm
 
 # Create your views here.
 
@@ -24,15 +23,15 @@ def LoginPage(request):
         return redirect('home')
 
     if request.method == 'POST':
-        username = request.POST.get('username').lower()
+        email = request.POST.get('email').lower()
         password = request.POST.get('password')
 
         try:
-            user = User.objects.get(username=username)
+            user = User.objects.get(email=email)
         except:
             messages.error(request, 'User does not exist' )
 
-        user = authenticate(request, username=username, password=password)
+        user = authenticate(request, email=email, password=password)
 
         if user is not None:
             login(request, user)
@@ -48,19 +47,20 @@ def logoutUser(request):
 
 def registerPage(request):
     # page = 'register'
-    form = UserCreationForm()
-    context = {'form': form}
+    form = MyUserCreationForm()
+    # context = {'form': form}
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = MyUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
             user.username = user.username.lower()
+            user.email = user.email.lower()
             user.save()
             login(request, user)
             return redirect('home')
         else:
             messages.error(request, 'An error occured during registration')
-    return render(request, 'base/login_register.html', context)
+    return render(request, 'base/login_register.html')
 
 def home(request):
     # return HttpResponse('Home page')
@@ -88,6 +88,8 @@ def room(request, pk):
     participants = rooms.participants.all()
 
     if request.method == 'POST':
+        if not request.user.is_authenticated:
+            return redirect('login')
         message = Message.objects.create(
             user = request.user,
             room=rooms,
@@ -136,14 +138,12 @@ def updateRoom(request, pk):
     if request.user != room.host:
         return HttpResponse('You are not allowed here!!')
 
-    if request.user != room.host:
-        return HttpResponse('You are not ')
 
     if request.method == 'POST':
         topic_name = request.POST.get('topic')
         topic, created = Topic.objects.get_or_create(name=topic_name)
         room.name = request.POST.get('name')
-        room.topic = request.POST.get('topic')
+        room.topic = topic 
         room.description = request.POST.get('description')
         room.save()
         return redirect('home')
@@ -182,8 +182,8 @@ def updateUser(request):
     form = UserForm(instance=user)
 
     if request.method=='POST':
-        form = UserForm(request.POST, instance=user)
-        if form.is_valid:
+        form = UserForm(request.POST, request.FILES, instance=user)
+        if form.is_valid():
             form.save()
             return redirect('user-profile', pk=user.id)
 
