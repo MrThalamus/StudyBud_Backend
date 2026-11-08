@@ -41,9 +41,21 @@ INSTALLED_APPS = [
     'base.apps.BaseConfig',
 
     'rest_framework',
-
+    'rest_framework.authtoken', #read only, logged in callers can write
+    
     'corsheaders',
 ]
+
+# creates the token table.
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+}
 
 AUTH_USER_MODEL = 'base.User'
 

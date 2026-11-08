@@ -1,8 +1,34 @@
 from django.urls import path
 from . import views
+from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns =[
   path('', views.getRoute),
+  #---------------------Room-----------------------------
   path('rooms/', views.getRooms),
-  path('rooms/<str:pk>', views.getRoom),
+  path('rooms/<int:pk>/', views.getRoom),
+  path('rooms/<int:pk>/update/', views.updateRoom),
+  path('rooms/<int:pk>/delete/', views.deleteRoom),
+  #---------------------Topic-----------------------------
+  path('topics/', views.getTopics),
+  #---------------------Message-----------------------------
+  path('rooms/<int:pk>/messages/', views.getMessages),
+  path('messages/', views.getAllMessages),
+  path('messages/<int:pk>/delete/', views.deleteMessage),
+  #---------------------Register User-----------------------------
+  path('register/', views.registerUser),
+  #---------------------User Profile-----------------------------
+  path('users/<int:pk>/', views.getUser),
+  path('users/<int:pk>/rooms/', views.getUserRooms),
+  path('users/<int:pk>/messages/', views.getUserMessages),
+  path('users/update/', views.updateUser),
+  #--------------------Logout------------------------------------
+  path('logout/', views.logoutUser),
+
+
+
+
+
+  path('login/', obtain_auth_token)
+  
 ]

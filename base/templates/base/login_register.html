@@ -1,7 +1,6 @@
 {% extends 'main.html' %}
 
 {% block content %}
-    </header>
     <main class="auth layout">
       {% if page == 'login' %}
       <div class="container">
@@ -65,6 +64,7 @@
               {% for field in form %}
               <div class="form__group form__group">
                 <label for="room_name">{{field.label}}</label>
+                {{field.errors}}
                 {{field}}
               </div>
               {% endfor %} 

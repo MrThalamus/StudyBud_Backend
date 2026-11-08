@@ -7,6 +7,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.http import HttpResponse 
 from .models import Room, Topic, Message, User
 from .forms import RoomForm, UserForm, MyUserCreationForm
+from django.shortcuts import get_object_or_404
 
 # Create your views here.
 
@@ -17,29 +18,25 @@ from .forms import RoomForm, UserForm, MyUserCreationForm
             
 # ]
 def LoginPage(request):
-
     page = 'login'
     if request.user.is_authenticated:
         return redirect('home')
 
     if request.method == 'POST':
-        email = request.POST.get('email').lower()
-        password = request.POST.get('password')
+        email = request.POST.get('email', '').lower()
+        password = request.POST.get('password') 
 
-        try:
-            user = User.objects.get(email=email)
-        except:
-            messages.error(request, 'User does not exist' )
+        if not email:
+            messages.error(request, 'Please enter your email')  
+        else:              
+            user = authenticate(request, email=email, password=password)
 
-        user = authenticate(request, email=email, password=password)
-
-        if user is not None:
-            login(request, user)
-            return redirect('home')
-        else:
-            messages.error(request, 'User or password does not exist')
-    context ={'page': page}
-    return render(request, 'base/login_register.html', context)
+            if user is not None:
+                login(request, user)
+                return redirect('home')
+            else:
+                messages.error(request, 'User or password does not exist')
+    return render(request, 'base/login_register.html', {'page': page})
 
 def logoutUser(request):
     logout(request)
@@ -60,7 +57,7 @@ def registerPage(request):
             return redirect('home')
         else:
             messages.error(request, 'An error occured during registration')
-    return render(request, 'base/login_register.html')
+    return render(request, 'base/login_register.html', {'form': form})
 
 def home(request):
     # return HttpResponse('Home page')
@@ -83,7 +80,7 @@ def room(request, pk):
     # for i in rooms:
     #     if i['id'] == int(pk):
     #         room = i 
-    rooms = Room.objects.get(id=pk)
+    rooms = get_object_or_404(Room, id=pk)
     room_messages = rooms.message_set.all()
     participants = rooms.participants.all()
 
@@ -102,7 +99,7 @@ def room(request, pk):
     return render(request, 'base/room.html', context)
 
 def userProfile(request, pk):
-    user = User.objects.get(id=pk)
+    user = get_object_or_404(User, id=pk)
     rooms = user.room_set.all()
     room_messages = user.message_set.all()
     topics = Topic.objects.all()
@@ -131,7 +128,7 @@ def createRoom(request):
 
 @login_required(login_url='login')
 def updateRoom(request, pk):
-    room = Room.objects.get(id=pk)
+    room = get_object_or_404(Room, id=pk)
     form = RoomForm(instance=room)
     topics = Topic.objects.all()
 
@@ -146,14 +143,14 @@ def updateRoom(request, pk):
         room.topic = topic 
         room.description = request.POST.get('description')
         room.save()
-        return redirect('home')
+        return redirect('room', pk=room.id)
 
     context = {'form': form, 'topics': topics, 'room': room}
     return render(request, 'base/room_form.html', context)
 
 @login_required(login_url='login')
 def deleteRoom(request, pk):
-    room = Room.objects.get(id=pk)
+    room = get_object_or_404(Room, id=pk)
 
     if request.user != room.host:
             return HttpResponse('You are not allowed here!!')
@@ -165,14 +162,14 @@ def deleteRoom(request, pk):
 
 @login_required(login_url='login')
 def deleteMessage(request, pk):
-    message = Message.objects.get(id=pk)
+    message = get_object_or_404(Message, id=pk)
 
     if request.user != message.user:
             return HttpResponse('You are not allowed here!!')
     
     if request.method == 'POST':
         message.delete()
-        return redirect('home')
+        return redirect('room', pk=message.room.id)
     return render(request, 'base/delete.html', {'obj': message})
 
 
