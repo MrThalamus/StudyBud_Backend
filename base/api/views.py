@@ -6,6 +6,8 @@ from .serializers import RoomSerializer, TopicSerializer, MessageSerializer, Reg
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.authtoken.models import Token
+from django.db.models import Q
+
 
 
 @api_view(['GET'])
@@ -35,6 +37,7 @@ def getRoute(request):
     'POST /api/register/',
     #---------------------User Profile-------------------------
     'GET /api/users/:id/',
+    'GET /api/users/me/',
     'GET /api/users/:id/rooms',
     'GET /api/users/:id/messages',
     'PATCH /api/users/update/',
@@ -50,6 +53,16 @@ def getRoute(request):
 #---------------------Room-----------------------------
 @api_view(['GET', 'POST'])
 def getRooms(request):
+  if request.method == 'GET':
+    q = request.GET.get('q', '')
+    rooms = Room.objects.select_related('host', 'topic').filter(
+      Q(topic__name__icontains=q) |
+      Q(name__icontains=q) |
+      Q(description__icontains=q)
+    )
+    serializer = RoomSerializer(rooms, many=True)
+    return Response(serializer.data)
+
   if request.method == 'GET':
     rooms = Room.objects.all()
     serializer = RoomSerializer(rooms, many=True)
@@ -162,6 +175,13 @@ def getUser(request, pk):
   user = get_object_or_404(User, id=pk)
   serializer = UserSerializer(user, many=False)
   return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getMe(request):
+  serializer = UpdateUserSerializer(request.user, many=False)
+  return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 @api_view(['GET'])
 def getUserRooms(request, pk):

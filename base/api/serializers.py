@@ -1,8 +1,11 @@
-from rest_framework.serializers import ModelSerializer, CharField, ValidationError
+from rest_framework.serializers import ModelSerializer, CharField, ValidationError, ImageField
 from base.models import Room, Topic, Message, User
 from django.contrib.auth.password_validation import validate_password
 
 class RoomSerializer(ModelSerializer):
+  host_name = CharField(source='host.username', read_only=True, allow_null=True)
+  topic_name = CharField(source='topic.name', read_only=True, allow_null=True)
+
   class Meta:
     model = Room
     fields = '__all__'
@@ -15,6 +18,9 @@ class TopicSerializer(ModelSerializer):
     fields = '__all__'
 
 class MessageSerializer(ModelSerializer):
+  user_name = CharField(source='user.username', read_only=True)
+  user_avatar = ImageField(source='user.avatar', read_only=True)
+
   class Meta:
     model = Message  
     fields = '__all__'
