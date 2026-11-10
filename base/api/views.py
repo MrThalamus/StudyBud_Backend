@@ -6,7 +6,7 @@ from .serializers import RoomSerializer, TopicSerializer, MessageSerializer, Reg
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from django.db.models import Q
+from django.db.models import Q, Count
 
 
 
@@ -113,11 +113,9 @@ def deleteRoom(request, pk):
 #---------------------Topic-----------------------------
 @api_view(['GET'])
 def getTopics(request):
-  
   q = request.GET.get('q', '')
-  topic = Topic.objects.filter(name__icontains=q)
-  serializer = TopicSerializer(topic, many=True)
-
+  topics = Topic.objects.filter(name__icontains=q).annotate(room_count=Count('room'))
+  serializer = TopicSerializer(topics, many=True)
   return Response(serializer.data)
 
 #---------------------Messages-----------------------------
@@ -140,7 +138,7 @@ def getMessages(request, pk):
 
 @api_view(['GET'])
 def getAllMessages(request):
-  messages = Message.objects.all()
+  messages = Message.objects.select_related('user', 'room').all()
   serializer = MessageSerializer(messages, many=True)
   return Response(serializer.data, status=status.HTTP_200_OK)
 

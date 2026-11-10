@@ -1,4 +1,4 @@
-from rest_framework.serializers import ModelSerializer, CharField, ValidationError, ImageField
+from rest_framework.serializers import ModelSerializer, CharField, ValidationError, ImageField, IntegerField
 from base.models import Room, Topic, Message, User
 from django.contrib.auth.password_validation import validate_password
 
@@ -13,6 +13,8 @@ class RoomSerializer(ModelSerializer):
     extra_kwargs = {'topic': {'required': True, 'allow_null': False}} #A room with no topic can be created through the API but not through the website.(Fixed)
 
 class TopicSerializer(ModelSerializer):
+  room_count = IntegerField(read_only=True)
+
   class Meta:
     model = Topic 
     fields = '__all__'
@@ -20,6 +22,7 @@ class TopicSerializer(ModelSerializer):
 class MessageSerializer(ModelSerializer):
   user_name = CharField(source='user.username', read_only=True)
   user_avatar = ImageField(source='user.avatar', read_only=True)
+  room_name = CharField(source='room.name', read_only=True)
 
   class Meta:
     model = Message  
