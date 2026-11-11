@@ -4,12 +4,13 @@ from django.contrib.auth.password_validation import validate_password
 
 class RoomSerializer(ModelSerializer):
   host_name = CharField(source='host.username', read_only=True, allow_null=True)
+  host_avatar = ImageField(source='host.avatar', read_only=True, allow_null=True)
   topic_name = CharField(source='topic.name', read_only=True, allow_null=True)
 
   class Meta:
     model = Room
     fields = '__all__'
-    read_only_fields = ['host', 'participants']
+    read_only_fields = ['host', 'participants', 'topic']
     extra_kwargs = {'topic': {'required': True, 'allow_null': False}} #A room with no topic can be created through the API but not through the website.(Fixed)
 
 class TopicSerializer(ModelSerializer):

@@ -50,6 +50,16 @@ def getRoute(request):
   ]
   return Response(routes)
 
+#---------------------Helpers-----------------------------
+TOPIC_NAME_MAX_LENGTH = Topic._meta.get_field('name').max_length
+
+def get_or_create_topic(name):
+  # Case-insensitive match so "python" reuses an existing "Python" topic
+  topic = Topic.objects.filter(name__iexact=name).first()
+  if topic is None:
+    topic = Topic.objects.create(name=name)
+  return topic
+
 #---------------------Room-----------------------------
 @api_view(['GET', 'POST'])
 def getRooms(request):
@@ -63,17 +73,23 @@ def getRooms(request):
     serializer = RoomSerializer(rooms, many=True)
     return Response(serializer.data)
 
-  if request.method == 'GET':
-    rooms = Room.objects.all()
-    serializer = RoomSerializer(rooms, many=True)
-    return Response(serializer.data)
-  
-  
+  # POST
+  if not request.user.is_authenticated:
+    return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+  topic_name = str(request.data.get('topic_name', '')).strip()
+  if not topic_name:
+    return Response({'topic_name': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)
+  if len(topic_name) > TOPIC_NAME_MAX_LENGTH:
+    return Response({'topic_name': [f'Ensure this field has no more than {TOPIC_NAME_MAX_LENGTH} characters.']}, status=status.HTTP_400_BAD_REQUEST)
+
   serializer = RoomSerializer(data=request.data)
   if serializer.is_valid():
-    serializer.save(host=request.user)
+    topic = get_or_create_topic(topic_name)
+    serializer.save(host=request.user, topic=topic)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
   return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @api_view(['GET'])
@@ -88,17 +104,23 @@ def getRoom(request, pk):
 def updateRoom(request, pk):
    room = get_object_or_404(Room, id=pk)
 
-   if request.method == 'PATCH':
-     if room.host != request.user:
-       return Response(status=status.HTTP_403_FORBIDDEN)
-     else:
-       serializer=RoomSerializer(room, data=request.data, partial=True)
+   if room.host != request.user:
+     return Response(status=status.HTTP_403_FORBIDDEN)
 
-       if serializer.is_valid():
-          serializer.save()
-          return Response(serializer.data, status=status.HTTP_200_OK)
-       else:
-          return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+   topic_name = str(request.data.get('topic_name', '')).strip()
+   if len(topic_name) > TOPIC_NAME_MAX_LENGTH:
+     return Response({'topic_name': [f'Ensure this field has no more than {TOPIC_NAME_MAX_LENGTH} characters.']}, status=status.HTTP_400_BAD_REQUEST)
+
+   serializer = RoomSerializer(room, data=request.data, partial=True)
+   if serializer.is_valid():
+     if topic_name:
+       topic = get_or_create_topic(topic_name)
+       serializer.save(topic=topic)
+     else:
+       serializer.save()
+     return Response(serializer.data, status=status.HTTP_200_OK)
+   return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['DELETE'])
 def deleteRoom(request, pk):
@@ -138,7 +160,7 @@ def getMessages(request, pk):
 
 @api_view(['GET'])
 def getAllMessages(request):
-  messages = Message.objects.select_related('user', 'room').all()
+  messages = Message.objects.select_related('user', 'room')[:5]
   serializer = MessageSerializer(messages, many=True)
   return Response(serializer.data, status=status.HTTP_200_OK)
 
