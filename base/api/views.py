@@ -90,7 +90,11 @@ def getRooms(request):
     return Response(serializer.data, status=status.HTTP_201_CREATED)
   return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+@api_view(['GET'])
+def getRoomParticipants(request, pk):
+  room = get_object_or_404(Room, id=pk)
+  serializer = UserSerializer(room.participants.all(), many=True)
+  return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 def getRoom(request, pk):

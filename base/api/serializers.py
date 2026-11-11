@@ -71,6 +71,11 @@ class UpdateUserSerializer(ModelSerializer):
   class Meta:
     model = User
     fields = ['id', 'avatar', 'name', 'username', 'email', 'bio']
+    extra_kwargs = {
+      'name': {'allow_blank': True},
+      'bio': {'allow_blank': True},
+    }
+
 
   def validate_email(self, value):
     email = value.lower()
