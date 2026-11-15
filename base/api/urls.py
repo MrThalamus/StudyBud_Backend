@@ -1,9 +1,13 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns =[
   path('', views.getRoute),
+
+  #-----------------Admin Panel------------------------
+  path('admin/', include('base.api.admin_panel.urls')),
+
   #---------------------Room-----------------------------
   path('rooms/', views.getRooms),
   path('rooms/<int:pk>/', views.getRoom),

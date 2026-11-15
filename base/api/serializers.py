@@ -70,7 +70,8 @@ class UserSerializer(ModelSerializer):
 class UpdateUserSerializer(ModelSerializer):
   class Meta:
     model = User
-    fields = ['id', 'avatar', 'name', 'username', 'email', 'bio']
+    fields = ['id', 'avatar', 'name', 'username', 'email', 'bio', 'is_superuser']
+    read_only_fields = ['is_superuser']
     extra_kwargs = {
       'bio': {'allow_blank': True},
     }
