@@ -61,7 +61,7 @@ def registerPage(request):
 
 def home(request):
     # return HttpResponse('Home page')
-    q = request.GET.get('q') if request.GET.get('q') != None else ''
+    q = request.GET.get('q', '').strip()
     topics = Topic.objects.all()[0:5]
     rooms = Room.objects.filter(
         Q(topic__name__icontains=q) |
@@ -187,7 +187,7 @@ def updateUser(request):
     return render(request, 'base/update-user.html', {'form': form})
 
 def topicsPage(request):
-    q = request.GET.get('q') if request.GET.get('q') != None else ''
+    q = request.GET.get('q', '').strip()
     topics = Topic.objects.filter(name__icontains=q)
     return render(request, 'base/topics.html', {'topics': topics})
 

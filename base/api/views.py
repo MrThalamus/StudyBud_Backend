@@ -64,7 +64,7 @@ def get_or_create_topic(name):
 @api_view(['GET', 'POST'])
 def getRooms(request):
   if request.method == 'GET':
-    q = request.GET.get('q', '')
+    q = request.GET.get('q', '').strip()
     rooms = Room.objects.select_related('host', 'topic').filter(
       Q(topic__name__icontains=q) |
       Q(name__icontains=q) |
@@ -139,7 +139,7 @@ def deleteRoom(request, pk):
 #---------------------Topic-----------------------------
 @api_view(['GET'])
 def getTopics(request):
-  q = request.GET.get('q', '')
+  q = request.GET.get('q', '').strip()
   topics = Topic.objects.filter(name__icontains=q).annotate(room_count=Count('room'))
   serializer = TopicSerializer(topics, many=True)
   return Response(serializer.data)

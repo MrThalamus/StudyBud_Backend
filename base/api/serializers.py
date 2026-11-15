@@ -72,7 +72,6 @@ class UpdateUserSerializer(ModelSerializer):
     model = User
     fields = ['id', 'avatar', 'name', 'username', 'email', 'bio']
     extra_kwargs = {
-      'name': {'allow_blank': True},
       'bio': {'allow_blank': True},
     }
 
