@@ -68,6 +68,17 @@ class AdminUserSerializer(ModelSerializer):
 class AdminRoomSerializer(ModelSerializer):
   host_name = CharField(source='host.username', read_only=True, allow_null=True)
   topic_name = CharField(source='topic.name', read_only=True, allow_null=True)
+  participant_names = SerializerMethodField()
+  message_count = SerializerMethodField()
+
+  def get_participant_names(self, obj):
+    # Usernames, not str(user): User.__str__ returns the email (USERNAME_FIELD)
+    return [user.username for user in obj.participants.all()]
+
+  def get_message_count(self, obj):
+    # List/detail come from the annotated queryset; a freshly created room doesn't
+    count = getattr(obj, 'message_count', None)
+    return count if count is not None else obj.message_set.count()
 
   class Meta:
     model = Room

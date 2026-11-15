@@ -59,10 +59,16 @@ class AdminUserViewSet(AdminBaseViewSet):
 
 #---------------------Rooms-----------------------------
 class AdminRoomViewSet(AdminBaseViewSet):
-  queryset = Room.objects.select_related('host', 'topic').all()
-  serializer_class = AdminRoomSerializer
-  search_fields = ['name', 'description', 'topic__name', 'host__username']
-  ordering_fields = ['id', 'name', 'created', 'updated']
+    queryset = (
+      Room.objects.select_related('host', 'topic')
+      .prefetch_related('participants')
+      .annotate(message_count=Count('message', distinct=True))
+      .order_by('-updated', '-created')  # annotate() drops the model's default ordering
+    )
+    serializer_class = AdminRoomSerializer
+    search_fields = ['name', 'description', 'topic__name', 'host__username']
+    ordering_fields = ['id', 'name', 'created', 'updated', 'message_count']
+
 
 
 #---------------------Topics-----------------------------
@@ -83,7 +89,7 @@ class AdminMessageViewSet(AdminBaseViewSet):
   http_method_names = ['get', 'put', 'patch', 'delete', 'head', 'options']
 
 
-#---------------------Dashboard stats-----------------------------
+#---------------------Dashboard stats------------------
 @api_view(['GET'])
 @permission_classes([IsSuperUser])
 def adminStats(request):
