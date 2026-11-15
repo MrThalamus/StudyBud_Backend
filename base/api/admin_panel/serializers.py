@@ -1,4 +1,4 @@
-from rest_framework.serializers import ModelSerializer, CharField, IntegerField
+from rest_framework.serializers import ModelSerializer, CharField, SerializerMethodField, ValidationError
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import password_validation
 from base.models import Room, Topic, Message, User
@@ -17,20 +17,41 @@ class AdminUserSerializer(ModelSerializer):
       'bio': {'allow_blank': True},
     }
 
+  # Case-insensitive uniqueness check (DRF's built-in unique check is case-sensitive,
+  # so "Foo@x.com" would slip past it and crash with a 500 on save)
   def validate_email(self, value):
-    return value.lower()
+    email = value.lower()
+    users = User.objects.filter(email__iexact=email)
+    if self.instance:
+      users = users.exclude(pk=self.instance.pk)
+    if users.exists():
+      raise ValidationError('This email already exists')
+    return email
+
+  # Same rules as registration / UpdateUserSerializer: lowercase + case-insensitive unique
+  def validate_username(self, value):
+    username = value.lower()
+    users = User.objects.filter(username__iexact=username)
+    if self.instance:
+      users = users.exclude(pk=self.instance.pk)
+    if users.exists():
+      raise ValidationError('This username is already taken')
+    return username
 
   def validate_password(self, value):
     password_validation.validate_password(value)
     return value
 
+  def validate(self, data):
+    # Password is required when creating a user (optional when editing)
+    if self.instance is None and not data.get('password'):
+      raise ValidationError({'password': 'This field is required.'})
+    return data
+
   def create(self, validated_data):
-    password = validated_data.pop('password', None)
+    password = validated_data.pop('password')
     user = User(**validated_data)
-    if password:
-      user.set_password(password) #hashes the pass
-    else:
-      user.set_unusable_password()
+    user.set_password(password) #hashes the pass
     user.save()
     return user
 
@@ -51,14 +72,31 @@ class AdminRoomSerializer(ModelSerializer):
   class Meta:
     model = Room
     fields = '__all__'   # host, topic, participants are writable for admin
+    extra_kwargs = {'topic': {'required': True, 'allow_null': False}}  # same rule as public API
 
 
 class AdminTopicSerializer(ModelSerializer):
-  room_count = IntegerField(read_only=True)
+  room_count = SerializerMethodField()
 
   class Meta:
     model = Topic
     fields = '__all__'
+
+  def get_room_count(self, obj):
+    # List/detail come from the annotated queryset; a freshly created topic doesn't,
+    # so fall back to counting (0 for a new topic)
+    count = getattr(obj, 'room_count', None)
+    return count if count is not None else obj.room_set.count()
+
+  # No duplicate topics (case-insensitive), matching the public API's get-or-create
+  def validate_name(self, value):
+    name = value.strip()
+    topics = Topic.objects.filter(name__iexact=name)
+    if self.instance:
+      topics = topics.exclude(pk=self.instance.pk)
+    if topics.exists():
+      raise ValidationError('A topic with this name already exists')
+    return name
 
 
 class AdminMessageSerializer(ModelSerializer):
@@ -67,4 +105,5 @@ class AdminMessageSerializer(ModelSerializer):
 
   class Meta:
     model = Message
-    fields = '__all__'   # user and room are writable for admin
+    fields = '__all__'
+    read_only_fields = ['user', 'room']   # admin can edit the body, not who wrote it or where

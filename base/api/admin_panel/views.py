@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.authtoken.models import Token
 from django.db.models import Count
 
 from base.models import Room, Topic, Message, User
@@ -31,11 +32,22 @@ class AdminUserViewSet(AdminBaseViewSet):
   search_fields = ['email', 'username', 'name']
   ordering_fields = ['id', 'date_joined', 'last_login', 'username']
 
+  def update(self, request, *args, **kwargs):
+    response = super().update(request, *args, **kwargs)
+    # Changing your OWN password deletes your token (see AdminUserSerializer.update),
+    # so hand back a fresh one to keep the admin logged in
+    if request.data.get('password') and str(kwargs.get('pk')) == str(request.user.pk):
+      token, _ = Token.objects.get_or_create(user=request.user)
+      response.data['token'] = token.key
+    return response
+
   def perform_update(self, serializer):
-    # Admin can't remove their own admin rights or deactivate themselves
+    # Admin can't remove their own admin/staff rights or deactivate themselves
     if serializer.instance == self.request.user:
       data = serializer.validated_data
-      if data.get('is_superuser') is False or data.get('is_active') is False:
+      if (data.get('is_superuser') is False
+          or data.get('is_staff') is False
+          or data.get('is_active') is False):
         raise ValidationError({'detail': "You can't remove your own admin access or deactivate yourself."})
     serializer.save()
 
@@ -67,6 +79,8 @@ class AdminMessageViewSet(AdminBaseViewSet):
   serializer_class = AdminMessageSerializer
   search_fields = ['body', 'user__username', 'room__name']
   ordering_fields = ['id', 'created', 'updated']
+  # No POST: user/room are read-only, so admin can't create messages as someone else
+  http_method_names = ['get', 'put', 'patch', 'delete', 'head', 'options']
 
 
 #---------------------Dashboard stats-----------------------------
