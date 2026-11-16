@@ -88,6 +88,8 @@ class AdminRoomSerializer(ModelSerializer):
 
 class AdminTopicSerializer(ModelSerializer):
   room_count = SerializerMethodField()
+  host_names = SerializerMethodField()
+
 
   class Meta:
     model = Topic
@@ -98,6 +100,11 @@ class AdminTopicSerializer(ModelSerializer):
     # so fall back to counting (0 for a new topic)
     count = getattr(obj, 'room_count', None)
     return count if count is not None else obj.room_set.count()
+  def get_host_names(self, obj):
+    # Unique usernames of everyone hosting a room in this topic (A-Z)
+    return sorted({room.host.username for room in obj.room_set.all() if room.host})
+
+  
 
   # No duplicate topics (case-insensitive), matching the public API's get-or-create
   def validate_name(self, value):

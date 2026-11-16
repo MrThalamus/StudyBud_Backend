@@ -73,7 +73,11 @@ class AdminRoomViewSet(AdminBaseViewSet):
 
 #---------------------Topics-----------------------------
 class AdminTopicViewSet(AdminBaseViewSet):
-  queryset = Topic.objects.annotate(room_count=Count('room')).order_by('name')
+  queryset = (
+    Topic.objects.annotate(room_count=Count('room'))
+    .prefetch_related('room_set__host')  # rooms + their hosts in 2 queries total
+    .order_by('name')
+  )
   serializer_class = AdminTopicSerializer
   search_fields = ['name']
   ordering_fields = ['id', 'name', 'room_count']
