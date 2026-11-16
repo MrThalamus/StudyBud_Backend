@@ -2,10 +2,11 @@ from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated  
 from base.models import Room, Topic, Message, User
-from .serializers import RoomSerializer, TopicSerializer, MessageSerializer, RegisterSerializer, UserSerializer, UpdateUserSerializer
+from .serializers import RoomSerializer, TopicSerializer, MessageSerializer, RegisterSerializer, UserSerializer, UpdateUserSerializer, LoginSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.authtoken.models import Token
+from django.contrib.auth.models import update_last_login
 from django.db.models import Q, Count
 
 
@@ -65,11 +66,15 @@ def get_or_create_topic(name):
 def getRooms(request):
   if request.method == 'GET':
     q = request.GET.get('q', '').strip()
+    topic = request.GET.get('topic', '').strip()
     rooms = Room.objects.select_related('host', 'topic').filter(
       Q(topic__name__icontains=q) |
       Q(name__icontains=q) |
       Q(description__icontains=q)
     )
+    if topic:
+      rooms = rooms.filter(topic__name__iexact=topic)  # exact topic, not a text match
+
     serializer = RoomSerializer(rooms, many=True)
     return Response(serializer.data)
 
@@ -193,7 +198,7 @@ def registerUser(request):
     )
   return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-#---------------------User Profile-----------------------------
+#---------------------User Profile---------------------
 @api_view(['GET'])
 def getUser(request, pk):
   user = get_object_or_404(User, id=pk)
@@ -237,3 +242,14 @@ def logoutUser(request):
   Token.objects.filter(user=request.user).delete()
   return Response({'detail': 'Logged out successfully'}, status=status.HTTP_200_OK)
 
+#---------------------Login-----------------------------
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def loginUser(request):
+  serializer = LoginSerializer(data=request.data, context={'request': request})
+  serializer.is_valid(raise_exception=True)
+  user = serializer.validated_data['user']
+
+  token, _ = Token.objects.get_or_create(user=user)
+  update_last_login(None, user)  # keeps "last login" accurate for API logins
+  return Response({'token': token.key}, status=status.HTTP_200_OK)

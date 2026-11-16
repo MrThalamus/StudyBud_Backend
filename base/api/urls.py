@@ -1,6 +1,6 @@
 from django.urls import path, include
 from . import views
-from rest_framework.authtoken.views import obtain_auth_token
+
 
 urlpatterns =[
   path('', views.getRoute),
@@ -32,10 +32,7 @@ urlpatterns =[
   #--------------------Logout------------------------------------
   path('logout/', views.logoutUser),
 
+  path('login/', views.loginUser),
 
-
-
-
-  path('login/', obtain_auth_token)
   
 ]
