@@ -2,13 +2,14 @@ from rest_framework.decorators import api_view,permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated  
 from base.models import Room, Topic, Message, User
-from .serializers import RoomSerializer, TopicSerializer, MessageSerializer, RegisterSerializer, UserSerializer, UpdateUserSerializer, LoginSerializer
+from .serializers import RoomSerializer, TopicSerializer, MessageSerializer, RegisterSerializer, UserSerializer, UpdateUserSerializer, LoginSerializer, JWTLoginSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import update_last_login
 from django.db.models import Q, Count
-
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 
 
 @api_view(['GET'])
@@ -16,7 +17,6 @@ def getRoute(request):
   routes=[
     'GET /api/',
     'POST /api/login/',
-
 
     #---------------------Room-----------------------------
     'GET /api/rooms/', #get room
@@ -44,9 +44,6 @@ def getRoute(request):
     'PATCH /api/users/update/',
     #---------------------User Profile-------------------------
     'POST /api/logout/',
-
-            
-
 
   ]
   return Response(routes)
@@ -191,11 +188,18 @@ def registerUser(request):
   serializer = RegisterSerializer(data=request.data)
   if serializer.is_valid():
     user = serializer.save()
-    token, created = Token.objects.get_or_create(user=user)
+    token, created = Token.objects.get_or_create(user=user)   # old system (frontend still uses it)
+    refresh = JWTLoginSerializer.get_token(user)             # new JWT system
     return Response(
-      {'token': token.key, 'user': serializer.data},
+      {
+        'token': token.key,
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+        'user': UpdateUserSerializer(user).data,
+      },
       status=status.HTTP_201_CREATED
     )
+
   return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 #---------------------User Profile---------------------
@@ -240,6 +244,21 @@ def updateUser(request):
 @permission_classes([IsAuthenticated])
 def logoutUser(request):
   Token.objects.filter(user=request.user).delete()
+  return Response({'detail': 'Logged out successfully'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def jwtLogout(request):
+  refresh = request.data.get('refresh')
+  if not refresh:
+    return Response({'refresh': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)
+
+  try:
+    token = RefreshToken(refresh)
+    token.blacklist()
+  except TokenError:
+    return Response({'detail': 'Token is invalid, expired or already logged out.'}, status=status.HTTP_400_BAD_REQUEST)
+
   return Response({'detail': 'Logged out successfully'}, status=status.HTTP_200_OK)
 
 #---------------------Login-----------------------------

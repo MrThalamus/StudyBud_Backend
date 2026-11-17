@@ -2,6 +2,7 @@ from rest_framework.serializers import ModelSerializer, CharField, SerializerMet
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import password_validation
 from base.models import Room, Topic, Message, User
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
 
 class AdminUserSerializer(ModelSerializer):
@@ -9,9 +10,7 @@ class AdminUserSerializer(ModelSerializer):
 
   class Meta:
     model = User
-    fields = ['id', 'email', 'username', 'name', 'bio', 'avatar',
-              'is_active', 'is_staff', 'is_superuser',
-              'date_joined', 'last_login', 'password']
+    fields = ['id', 'email', 'username', 'name', 'bio', 'avatar', 'is_active', 'is_staff', 'is_superuser', 'date_joined', 'last_login', 'password']
     read_only_fields = ['date_joined', 'last_login']
     extra_kwargs = {
       'bio': {'allow_blank': True},
@@ -61,7 +60,9 @@ class AdminUserSerializer(ModelSerializer):
     if password:
       user.set_password(password)
       user.save()
-      Token.objects.filter(user=user).delete()  # force re-login with new password
+      Token.objects.filter(user=user).delete()   # old system
+      for outstanding in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=outstanding)
     return user
 
 

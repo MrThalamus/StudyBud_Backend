@@ -2,6 +2,8 @@ from rest_framework.serializers import ModelSerializer, Serializer, CharField, E
 from base.models import Room, Topic, Message, User
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import authenticate
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
 
 class RoomSerializer(ModelSerializer):
   host_name = CharField(source='host.username', read_only=True, allow_null=True)
@@ -105,6 +107,20 @@ class LoginSerializer(Serializer):
     if user is None:
       raise ValidationError('Invalid email or password.')
     data['user'] = user
+    return data
+
+class JWTLoginSerializer(TokenObtainPairSerializer):
+  @classmethod
+  def get_token(cls, user):
+    token = super().get_token(user)
+    token['username'] = user.username
+    token['is_superuser'] = user.is_superuser
+    return token
+
+  def validate(self, attrs):
+    attrs['email'] = attrs['email'].lower()
+    data = super().validate(attrs)
+    data['user'] = UpdateUserSerializer(self.user).data
     return data
 
 

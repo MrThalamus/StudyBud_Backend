@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,13 +44,16 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework.authtoken', #read only, logged in callers can write
-    
     'corsheaders',
+    'rest_framework_simplejwt.token_blacklist', # When someone tries to refresh, simplejwt checks the blacklist first. If the token is listed, the answer is 401.
+
 ]
 
 # creates the token table.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+      # who is sending this request? any by asking each class
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
@@ -56,6 +61,17 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
 }
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'TOKEN_OBTAIN_SERIALIZER': 'base.api.serializers.JWTLoginSerializer',
+}
+
 
 AUTH_USER_MODEL = 'base.User'
 

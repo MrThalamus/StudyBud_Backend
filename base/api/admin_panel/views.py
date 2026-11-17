@@ -5,6 +5,8 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.authtoken.models import Token
 from django.db.models import Count
+from ..serializers import JWTLoginSerializer
+
 
 from base.models import Room, Topic, Message, User
 from .permissions import IsSuperUser
@@ -39,6 +41,9 @@ class AdminUserViewSet(AdminBaseViewSet):
     if request.data.get('password') and str(kwargs.get('pk')) == str(request.user.pk):
       token, _ = Token.objects.get_or_create(user=request.user)
       response.data['token'] = token.key
+      refresh = JWTLoginSerializer.get_token(request.user)
+      response.data['refresh'] = str(refresh)
+      response.data['access'] = str(refresh.access_token)
     return response
 
   def perform_update(self, serializer):
