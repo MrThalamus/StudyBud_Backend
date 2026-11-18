@@ -1,12 +1,10 @@
-from rest_framework.decorators import api_view,permission_classes
+from rest_framework.decorators import api_view,permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated  
 from base.models import Room, Topic, Message, User
-from .serializers import RoomSerializer, TopicSerializer, MessageSerializer, RegisterSerializer, UserSerializer, UpdateUserSerializer, LoginSerializer, JWTLoginSerializer
+from .serializers import RoomSerializer, TopicSerializer, MessageSerializer, RegisterSerializer, UserSerializer, UpdateUserSerializer, JWTLoginSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.authtoken.models import Token
-from django.contrib.auth.models import update_last_login
 from django.db.models import Q, Count
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
@@ -16,18 +14,16 @@ from rest_framework_simplejwt.exceptions import TokenError
 def getRoute(request):
   routes=[
     'GET /api/',
-    'POST /api/login/',
-
+    'POST /api/auth/login/',
+    'POST /api/auth/refresh/',
     #---------------------Room-----------------------------
-    'GET /api/rooms/', #get room
-    'POST /api/rooms/', #create room
-    'GET /api/rooms/:id/', #get specific room
-    'PATCH /api/rooms/:id/update/', #update a specific room 
-    'DELETE /api/rooms/:id/delete/', #delete a specific room
-
+    'GET /api/rooms/', 
+    'POST /api/rooms/', 
+    'GET /api/rooms/:id/', 
+    'PATCH /api/rooms/:id/update/',
+    'DELETE /api/rooms/:id/delete/',
     #---------------------Topic-----------------------------
-    'GET /api/topics/?q=', #get topics
-
+    'GET /api/topics/?q=', 
     #---------------------Messages-----------------------------
     'GET /api/rooms/:id/messages/',
     'POST /api/rooms/:id/messages/',
@@ -43,7 +39,7 @@ def getRoute(request):
     'GET /api/users/:id/messages',
     'PATCH /api/users/update/',
     #---------------------User Profile-------------------------
-    'POST /api/logout/',
+    'POST /api/auth/logout/',
 
   ]
   return Response(routes)
@@ -188,11 +184,9 @@ def registerUser(request):
   serializer = RegisterSerializer(data=request.data)
   if serializer.is_valid():
     user = serializer.save()
-    token, created = Token.objects.get_or_create(user=user)   # old system (frontend still uses it)
-    refresh = JWTLoginSerializer.get_token(user)             # new JWT system
+    refresh = JWTLoginSerializer.get_token(user) 
     return Response(
       {
-        'token': token.key,
         'refresh': str(refresh),
         'access': str(refresh.access_token),
         'user': UpdateUserSerializer(user).data,
@@ -241,12 +235,7 @@ def updateUser(request):
 
 #---------------------Logout-----------------------------
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def logoutUser(request):
-  Token.objects.filter(user=request.user).delete()
-  return Response({'detail': 'Logged out successfully'}, status=status.HTTP_200_OK)
-
-@api_view(['POST'])
+@authentication_classes([])  # logout only needs the refresh token in the body
 @permission_classes([AllowAny])
 def jwtLogout(request):
   refresh = request.data.get('refresh')
@@ -260,15 +249,3 @@ def jwtLogout(request):
     return Response({'detail': 'Token is invalid, expired or already logged out.'}, status=status.HTTP_400_BAD_REQUEST)
 
   return Response({'detail': 'Logged out successfully'}, status=status.HTTP_200_OK)
-
-#---------------------Login-----------------------------
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def loginUser(request):
-  serializer = LoginSerializer(data=request.data, context={'request': request})
-  serializer.is_valid(raise_exception=True)
-  user = serializer.validated_data['user']
-
-  token, _ = Token.objects.get_or_create(user=user)
-  update_last_login(None, user)  # keeps "last login" accurate for API logins
-  return Response({'token': token.key}, status=status.HTTP_200_OK)

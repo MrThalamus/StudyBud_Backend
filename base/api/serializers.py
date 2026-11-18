@@ -1,7 +1,6 @@
-from rest_framework.serializers import ModelSerializer, Serializer, CharField, EmailField, ValidationError, ImageField, IntegerField
+from rest_framework.serializers import ModelSerializer, CharField, ValidationError, ImageField, IntegerField
 from base.models import Room, Topic, Message, User
 from django.contrib.auth.password_validation import validate_password
-from django.contrib.auth import authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
@@ -92,22 +91,6 @@ class UpdateUserSerializer(ModelSerializer):
       raise ValidationError('This username is already taken')
     return username
 
-class LoginSerializer(Serializer):
-  email = EmailField()
-  password = CharField(write_only=True, trim_whitespace=False)
-
-  def validate(self, data):
-    # USERNAME_FIELD is 'email', so authenticate() looks the user up by email
-    user = authenticate(
-      request=self.context.get('request'),
-      email=data['email'].lower(),
-      password=data['password'],
-    )
-    # None = wrong email/password OR inactive account (same message on purpose)
-    if user is None:
-      raise ValidationError('Invalid email or password.')
-    data['user'] = user
-    return data
 
 class JWTLoginSerializer(TokenObtainPairSerializer):
   @classmethod

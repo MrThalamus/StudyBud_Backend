@@ -43,7 +43,6 @@ INSTALLED_APPS = [
     'base.apps.BaseConfig',
 
     'rest_framework',
-    'rest_framework.authtoken', #read only, logged in callers can write
     'corsheaders',
     'rest_framework_simplejwt.token_blacklist', # When someone tries to refresh, simplejwt checks the blacklist first. If the token is listed, the answer is 401.
 
@@ -54,7 +53,6 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
       # who is sending this request? any by asking each class
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [

@@ -1,5 +1,4 @@
 from rest_framework.serializers import ModelSerializer, CharField, SerializerMethodField, ValidationError
-from rest_framework.authtoken.models import Token
 from django.contrib.auth import password_validation
 from base.models import Room, Topic, Message, User
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
@@ -60,7 +59,6 @@ class AdminUserSerializer(ModelSerializer):
     if password:
       user.set_password(password)
       user.save()
-      Token.objects.filter(user=user).delete()   # old system
       for outstanding in OutstandingToken.objects.filter(user=user):
         BlacklistedToken.objects.get_or_create(token=outstanding)
     return user

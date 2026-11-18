@@ -3,7 +3,6 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.authtoken.models import Token
 from django.db.models import Count
 from ..serializers import JWTLoginSerializer
 
@@ -36,11 +35,9 @@ class AdminUserViewSet(AdminBaseViewSet):
 
   def update(self, request, *args, **kwargs):
     response = super().update(request, *args, **kwargs)
-    # Changing your OWN password deletes your token (see AdminUserSerializer.update),
-    # so hand back a fresh one to keep the admin logged in
+    # Changing your OWN password blacklists all your refresh tokens
+    # (see AdminUserSerializer.update), so hand back a fresh pair to stay logged in
     if request.data.get('password') and str(kwargs.get('pk')) == str(request.user.pk):
-      token, _ = Token.objects.get_or_create(user=request.user)
-      response.data['token'] = token.key
       refresh = JWTLoginSerializer.get_token(request.user)
       response.data['refresh'] = str(refresh)
       response.data['access'] = str(refresh.access_token)

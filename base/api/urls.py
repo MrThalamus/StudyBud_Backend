@@ -30,11 +30,8 @@ urlpatterns =[
   path('users/<int:pk>/messages/', views.getUserMessages),
   path('users/update/', views.updateUser),
   #--------------------Logout----------------------------------
-  path('logout/', views.logoutUser),
   path('auth/logout/', views.jwtLogout),
   #--------------------Login-----------------------------------
-  path('login/', views.loginUser),
-  #--------------------JWT Auth--------------------------
   path('auth/login/', TokenObtainPairView.as_view()),
   path('auth/refresh/', TokenRefreshView.as_view()),
 
