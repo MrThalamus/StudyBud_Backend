@@ -1,3 +1,4 @@
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.decorators import api_view,permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated  
@@ -159,12 +160,18 @@ def getMessages(request, pk):
         room.participants.add(request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class MessagePagination(LimitOffsetPagination):
+  default_limit = 20   # used when the frontend sends no ?limit=
+  max_limit = 100      # ?limit=99999 is cut down to 100
+
 
 @api_view(['GET'])
 def getAllMessages(request):
-  messages = Message.objects.select_related('user', 'room')[:5]
-  serializer = MessageSerializer(messages, many=True)
-  return Response(serializer.data, status=status.HTTP_200_OK)
+  messages = Message.objects.select_related('user', 'room')
+  paginator = MessagePagination()
+  page = paginator.paginate_queryset(messages, request)
+  serializer = MessageSerializer(page, many=True)
+  return paginator.get_paginated_response(serializer.data)
 
 @api_view(['DELETE'])
 def deleteMessage(request, pk):

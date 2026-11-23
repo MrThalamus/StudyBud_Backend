@@ -1,4 +1,4 @@
-from rest_framework.serializers import ModelSerializer, CharField, SerializerMethodField, ValidationError
+from rest_framework.serializers import ModelSerializer, ImageField, CharField, SerializerMethodField, ValidationError
 from django.contrib.auth import password_validation
 from base.models import Room, Topic, Message, User
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
@@ -117,6 +117,7 @@ class AdminTopicSerializer(ModelSerializer):
 
 
 class AdminMessageSerializer(ModelSerializer):
+  user_avatar = ImageField(source='user.avatar', read_only=True)
   user_name = CharField(source='user.username', read_only=True)
   room_name = CharField(source='room.name', read_only=True)
 
