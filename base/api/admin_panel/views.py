@@ -95,7 +95,7 @@ class AdminMessageViewSet(AdminBaseViewSet):
   http_method_names = ['get', 'put', 'patch', 'delete', 'head', 'options']
 
 
-#---------------------Dashboard stats------------------
+#---------------------Dashboard stats------------ 
 @api_view(['GET'])
 @permission_classes([IsSuperUser])
 def adminStats(request):

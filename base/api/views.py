@@ -76,6 +76,11 @@ def getRooms(request):
   if not request.user.is_authenticated:
     return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
 
+  # Admins manage rooms; only normal users can host one
+  if request.user.is_admin:
+    return Response({'detail': "Admins can't host rooms."}, status=status.HTTP_403_FORBIDDEN)
+
+
   topic_name = str(request.data.get('topic_name', '')).strip()
   if not topic_name:
     return Response({'topic_name': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)

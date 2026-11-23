@@ -14,6 +14,14 @@ class User(AbstractUser):
   USERNAME_FIELD = 'email'
   REQUIRED_FIELDS = ['username', 'name']
 
+  
+  # One definition of "admin" for the whole app: either flag counts.
+  # A property, not a column: no migration needed.
+  @property
+  def is_admin(self):
+    return self.is_superuser or self.is_staff
+
+
 
 class Topic(models.Model):
   name = models.CharField(max_length= 200)

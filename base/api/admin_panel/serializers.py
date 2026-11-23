@@ -44,6 +44,19 @@ class AdminUserSerializer(ModelSerializer):
     # Password is required when creating a user (optional when editing)
     if self.instance is None and not data.get('password'):
       raise ValidationError({'password': 'This field is required.'})
+
+    # Making a room host an admin would leave their rooms with an admin host
+    becoming_admin = data.get('is_superuser') or data.get('is_staff')
+    if self.instance and becoming_admin and not self.instance.is_admin:
+      hosted = self.instance.room_set.count()
+      if hosted:
+        room_word = 'room' if hosted == 1 else 'rooms'
+        raise ValidationError({'detail': f'This user hosts {hosted} {room_word}. Move them to another host first.'})
+    return data
+
+    # Password is required when creating a user (optional when editing)
+    if self.instance is None and not data.get('password'):
+      raise ValidationError({'password': 'This field is required.'})
     return data
 
   def create(self, validated_data):
@@ -82,8 +95,19 @@ class AdminRoomSerializer(ModelSerializer):
   class Meta:
     model = Room
     fields = '__all__'   # host, topic, participants are writable for admin
-    extra_kwargs = {'topic': {'required': True, 'allow_null': False}}  # same rule as public API
+    extra_kwargs = {
+      'topic': {'required': True, 'allow_null': False},  # same rule as public API
+      'host': {'required': True, 'allow_null': False},   # every room needs a host
+    }
 
+  # Rooms are hosted by normal users; admins only manage them
+  def validate_host(self, user):
+    if user.is_admin:
+      raise ValidationError("Admins can't host rooms. Choose a normal user.")
+    if not user.is_active:
+      raise ValidationError('This user is deactivated. Choose an active user.')
+    return user
+       
 
 class AdminTopicSerializer(ModelSerializer):
   room_count = SerializerMethodField()
