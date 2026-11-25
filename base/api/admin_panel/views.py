@@ -1,17 +1,21 @@
+import csv, io
 from rest_framework import viewsets, filters, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import MultiPartParser
 from django.db.models import Count
 from ..serializers import JWTLoginSerializer
-
-
+from django.db import IntegrityError, transaction
 from base.models import Room, Topic, Message, User
 from .permissions import IsSuperUser
 from .serializers import (
   AdminUserSerializer, AdminRoomSerializer, AdminTopicSerializer, AdminMessageSerializer
 )
+
+MAX_IMPORT_SIZE = 1 * 1024 * 1024   # 1 MB
+MAX_IMPORT_ROWS = 500
 
 
 class AdminPagination(PageNumberPagination):
@@ -58,6 +62,76 @@ class AdminUserViewSet(AdminBaseViewSet):
       raise PermissionDenied("You can't delete your own account.")
     instance.delete()
 
+  @action(detail=False, methods=['post'], url_path='import', parser_classes=[MultiPartParser])
+  def import_users(self, request):
+    upload = request.FILES.get('file')
+    if upload is None:
+      return Response({'detail': 'No file uploaded. Send it in a form field named "file".'},
+                      status=status.HTTP_400_BAD_REQUEST)
+    if not upload.name.lower().endswith('.csv'):
+      return Response({'detail': 'Only .csv files are allowed.'},
+                      status=status.HTTP_400_BAD_REQUEST)
+
+    if upload.size > MAX_IMPORT_SIZE:
+      return Response({'detail': f'File is too large (max {MAX_IMPORT_SIZE // (1024 * 1024)} MB).'},
+                      status=status.HTTP_400_BAD_REQUEST)
+    # 1. bytes -> text
+    try:
+      text = upload.read().decode('utf-8-sig')
+    except UnicodeDecodeError:
+      return Response({'detail': 'File must be a UTF-8 encoded CSV.'},
+                      status=status.HTTP_400_BAD_REQUEST)
+
+    # 2. text -> rows (dicts keyed by the header row)
+    reader = csv.DictReader(io.StringIO(text))
+    reader.fieldnames = [h.strip().lower() for h in (reader.fieldnames or [])]
+
+    # 3. the header must have the columns we need
+    required = {'email', 'username', 'name', 'password'}
+    missing = required - set(reader.fieldnames)
+    if missing:
+      return Response({'detail': f'Missing columns: {", ".join(sorted(missing))}'},
+                      status=status.HTTP_400_BAD_REQUEST)
+
+    rows = list(reader)
+    if not rows:
+      return Response({'detail': 'The file has no user rows.'},
+                      status=status.HTTP_400_BAD_REQUEST)
+    if len(rows) > MAX_IMPORT_ROWS:
+      return Response({'detail': f'Too many rows (max {MAX_IMPORT_ROWS}).'},
+                      status=status.HTTP_400_BAD_REQUEST)
+
+    created, errors = [], []
+    for line_no, row in enumerate(rows, start=2):   # line 1 is the header
+      # Only these fields are taken from the file
+      data = {
+        'email':    (row.get('email') or '').strip(),
+        'username': (row.get('username') or '').strip(),
+        'name':     (row.get('name') or '').strip(),
+        'password': row.get('password') or '',
+        'bio':      (row.get('bio') or '').strip(),
+      }
+
+      serializer = self.get_serializer(data=data)
+      if serializer.is_valid():
+        try:
+          with transaction.atomic():
+            user = serializer.save()
+        except IntegrityError:
+          errors.append({'row': line_no, 'email': data['email'],
+                         'errors': {'detail': ['Email or username was just taken by another request.']}})
+          continue
+        created.append({'row': line_no, 'id': user.id, 'email': user.email})
+      else:
+        errors.append({'row': line_no, 'email': data['email'], 'errors': serializer.errors})
+
+    return Response({
+      'created': len(created),
+      'failed': len(errors),
+      'created_users': created,
+      'errors': errors,
+    }, status=status.HTTP_200_OK)
+
 
 #---------------------Rooms-----------------------------
 class AdminRoomViewSet(AdminBaseViewSet):
@@ -94,6 +168,16 @@ class AdminMessageViewSet(AdminBaseViewSet):
   # No POST: user/room are read-only, so admin can't create messages as someone else
   http_method_names = ['get', 'put', 'patch', 'delete', 'head', 'options']
 
+
+  # ?room=<id> = only that room's messages (exact match; ?search= is a fuzzy text search)
+  def get_queryset(self):
+    queryset = super().get_queryset()
+    room = self.request.query_params.get('room')
+    if room is not None:
+      if not room.isdigit():
+        raise ValidationError({'room': 'Must be a room id (a number).'})
+      queryset = queryset.filter(room_id=room)
+    return queryset
 
 #---------------------Dashboard stats------------ 
 @api_view(['GET'])

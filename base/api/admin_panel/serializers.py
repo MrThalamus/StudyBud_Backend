@@ -54,10 +54,6 @@ class AdminUserSerializer(ModelSerializer):
         raise ValidationError({'detail': f'This user hosts {hosted} {room_word}. Move them to another host first.'})
     return data
 
-    # Password is required when creating a user (optional when editing)
-    if self.instance is None and not data.get('password'):
-      raise ValidationError({'password': 'This field is required.'})
-    return data
 
   def create(self, validated_data):
     password = validated_data.pop('password')
